@@ -108,7 +108,7 @@ async def build_candidate_bundles(
             "close_time": 1,
             "visit_penalty_minutes": 1,
         },
-    ).to_list(length=500)
+    ).to_list(length=5000)
 
     nearby_stores: list[StoreNode] = []
     nearby_store_ids: set[str] = set()
