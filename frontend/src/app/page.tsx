@@ -798,9 +798,14 @@ export default function Home() {
                                   </div>
                                 )}
 
-                                {/* Map placeholder */}
-                                <div className="mt-3 rounded-xl border border-dashed border-gray-700 p-4 text-center text-xs text-gray-500">
-                                  Map for this Trip
+                                {/* Route map */}
+                                <div className="mt-3">
+                                  <StoreMap
+                                    route={route.route ?? []}
+                                    userLat={Number(profile.latitude)}
+                                    userLng={Number(profile.longitude)}
+                                    mapId={`route-${route.rank}`}
+                                  />
                                 </div>
                               </div>
                             )}
@@ -808,16 +813,6 @@ export default function Home() {
                         </div>
                       );
                     })}
-
-                  {/* Store map for selected route */}
-                  <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
-                    <h3 className="mb-3 text-sm font-semibold text-gray-400">STORE MAP</h3>
-                    <StoreMap
-                      stores={activeRoute?.stores ?? []}
-                      userLat={Number(profile.latitude)}
-                      userLng={Number(profile.longitude)}
-                    />
-                  </div>
                 </>
               )}
             </div>
