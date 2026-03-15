@@ -41,6 +41,70 @@ const defaultProfile: UserProfile = {
   gas_price: 3.5,
 };
 
+function LocationFieldRow({
+  title,
+  lat,
+  lon,
+  onLatChange,
+  onLonChange,
+  onUseCurrent,
+}: {
+  title: string;
+  lat: number;
+  lon: number;
+  onLatChange: (value: number) => void;
+  onLonChange: (value: number) => void;
+  onUseCurrent: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-700 bg-gray-800/60 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+            <LocationIcon className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-white">{title}</div>
+            <div className="text-xs text-gray-500">Coordinates for this trip point</div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onUseCurrent}
+          className="rounded-xl border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-400 transition hover:bg-emerald-600 hover:text-white"
+        >
+          Use Current
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm text-gray-400">Latitude</label>
+          <input
+            type="number"
+            step="any"
+            value={lat}
+            onChange={(e) => onLatChange(Number(e.target.value))}
+            className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm text-gray-400">Longitude</label>
+          <input
+            type="number"
+            step="any"
+            value={lon}
+            onChange={(e) => onLonChange(Number(e.target.value))}
+            className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [sessionEmail, setSessionEmail] = useState("");
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
@@ -97,7 +161,7 @@ export default function Home() {
     ? result.categories?.[result.recommended_category]
     : null;
 
-  const handleUseCurrentLocation = async () => {
+  const getCurrentCoords = (onSuccess: (lat: number, lon: number) => void) => {
     setStatusMessage("");
 
     if (!navigator.geolocation) {
@@ -107,18 +171,34 @@ export default function Home() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setProfile((prev) => ({
-          ...prev,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }));
-        setStatusMessage("Start location updated.");
+        onSuccess(position.coords.latitude, position.coords.longitude);
+        setStatusMessage("Current location applied.");
       },
       () => {
         setStatusMessage("Unable to fetch current location.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  const handleUseCurrentStart = () => {
+    getCurrentCoords((lat, lon) => {
+      setProfile((prev) => ({
+        ...prev,
+        latitude: lat,
+        longitude: lon,
+      }));
+    });
+  };
+
+  const handleUseCurrentEnd = () => {
+    getCurrentCoords((lat, lon) => {
+      setProfile((prev) => ({
+        ...prev,
+        destination_latitude: lat,
+        destination_longitude: lon,
+      }));
+    });
   };
 
   const handleOptimize = async () => {
@@ -208,83 +288,41 @@ export default function Home() {
               <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
                 <h2 className="mb-4 text-xl font-semibold text-emerald-300">Trip Settings</h2>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-sm text-gray-400">
-                      <LocationIcon className="h-4 w-4" />
-                      Start Latitude
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={profile.latitude}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          latitude: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-                    />
-                  </div>
+                <div className="space-y-4">
+                  <LocationFieldRow
+                    title="Start Location"
+                    lat={profile.latitude}
+                    lon={profile.longitude}
+                    onLatChange={(value) =>
+                      setProfile((prev) => ({ ...prev, latitude: value }))
+                    }
+                    onLonChange={(value) =>
+                      setProfile((prev) => ({ ...prev, longitude: value }))
+                    }
+                    onUseCurrent={handleUseCurrentStart}
+                  />
 
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-sm text-gray-400">
-                      <LocationIcon className="h-4 w-4" />
-                      Start Longitude
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={profile.longitude}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          longitude: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-                    />
-                  </div>
+                  <LocationFieldRow
+                    title="End Location"
+                    lat={profile.destination_latitude}
+                    lon={profile.destination_longitude}
+                    onLatChange={(value) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        destination_latitude: value,
+                      }))
+                    }
+                    onLonChange={(value) =>
+                      setProfile((prev) => ({
+                        ...prev,
+                        destination_longitude: value,
+                      }))
+                    }
+                    onUseCurrent={handleUseCurrentEnd}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-sm text-gray-400">
-                      <LocationIcon className="h-4 w-4" />
-                      End Latitude
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={profile.destination_latitude}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          destination_latitude: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 flex items-center gap-2 text-sm text-gray-400">
-                      <LocationIcon className="h-4 w-4" />
-                      End Longitude
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={profile.destination_longitude}
-                      onChange={(e) =>
-                        setProfile((prev) => ({
-                          ...prev,
-                          destination_longitude: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-                    />
-                  </div>
-
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm text-gray-400">Driving Radius (miles)</label>
                     <input
@@ -361,25 +399,17 @@ export default function Home() {
                       className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
                     />
                   </div>
+                </div>
 
-                  <div className="md:col-span-2 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleUseCurrentLocation}
-                      className="rounded-xl border border-emerald-600 px-4 py-3 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-600 hover:text-white"
-                    >
-                      Use Current Start Location
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleOptimize}
-                      disabled={items.length === 0 || loading}
-                      className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500"
-                    >
-                      {loading ? "Optimizing..." : "Generate Candidates + Optimize"}
-                    </button>
-                  </div>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleOptimize}
+                    disabled={items.length === 0 || loading}
+                    className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500"
+                  >
+                    {loading ? "Optimizing..." : "Generate Candidates + Optimize"}
+                  </button>
                 </div>
 
                 {statusMessage && (
