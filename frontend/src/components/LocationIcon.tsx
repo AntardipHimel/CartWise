@@ -9,11 +9,12 @@ export default function LocationIcon({ className = "h-4 w-4" }: Props) {
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
-      aria-hidden="true"
     >
-      <path d="M12 21s7-5.686 7-11a7 7 0 1 0-14 0c0 5.314 7 11 7 11Z" />
-      <circle cx="12" cy="10" r="2.5" />
+      <path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10Z" />
+      <circle cx="12" cy="11" r="2.5" />
     </svg>
   );
 }

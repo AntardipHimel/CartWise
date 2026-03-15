@@ -42,6 +42,36 @@ const emptyProfile: UserProfile = {
   gas_price: 3.5,
 };
 
+function LabeledInput({
+  label,
+  value,
+  onChange,
+  type = "text",
+  step,
+  placeholder,
+}: {
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  type?: string;
+  step?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-gray-400">{label}</label>
+      <input
+        type={type}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+      />
+    </div>
+  );
+}
+
 export default function ProfilePanel({ email, onClose }: Props) {
   const [profile, setProfile] = useState<UserProfile>(emptyProfile);
   const [trips, setTrips] = useState<any[]>([]);
@@ -143,108 +173,102 @@ export default function ProfilePanel({ email, onClose }: Props) {
             <h3 className="mb-4 text-lg font-semibold text-emerald-300">Account Settings</h3>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <input
+              <LabeledInput
+                label="Name"
                 value={profile.name}
-                onChange={(e) => setProfile((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Name"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+                onChange={(value) => setProfile((prev) => ({ ...prev, name: value }))}
+                placeholder="Your name"
               />
-              <input
+              <LabeledInput
+                label="Email"
+                value={profile.email}
+                onChange={() => {}}
+                placeholder="Email"
+              />
+              <LabeledInput
+                label="ZIP Code"
                 value={profile.zip_code}
-                onChange={(e) => setProfile((prev) => ({ ...prev, zip_code: e.target.value }))}
+                onChange={(value) => setProfile((prev) => ({ ...prev, zip_code: value }))}
                 placeholder="ZIP code"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
               />
-              <input
-                type="number"
-                step="any"
-                value={profile.latitude}
-                onChange={(e) =>
-                  setProfile((prev) => ({ ...prev, latitude: Number(e.target.value) }))
+              <LabeledInput
+                label="Driving Radius (miles)"
+                value={profile.max_drive_miles}
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, max_drive_miles: Number(value) }))
                 }
-                placeholder="Start latitude"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              />
-              <input
-                type="number"
-                step="any"
-                value={profile.longitude}
-                onChange={(e) =>
-                  setProfile((prev) => ({ ...prev, longitude: Number(e.target.value) }))
-                }
-                placeholder="Start longitude"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              />
-              <input
-                type="number"
-                step="any"
-                value={profile.destination_latitude}
-                onChange={(e) =>
-                  setProfile((prev) => ({
-                    ...prev,
-                    destination_latitude: Number(e.target.value),
-                  }))
-                }
-                placeholder="End latitude"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              />
-              <input
-                type="number"
-                step="any"
-                value={profile.destination_longitude}
-                onChange={(e) =>
-                  setProfile((prev) => ({
-                    ...prev,
-                    destination_longitude: Number(e.target.value),
-                  }))
-                }
-                placeholder="End longitude"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              />
-              <input
                 type="number"
                 step="0.5"
-                value={profile.max_drive_miles}
-                onChange={(e) =>
-                  setProfile((prev) => ({
-                    ...prev,
-                    max_drive_miles: Number(e.target.value),
-                  }))
-                }
-                placeholder="Driving radius"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
               />
-              <input
-                type="number"
+              <LabeledInput
+                label="Max Store Count"
                 value={profile.max_store_count}
-                onChange={(e) =>
-                  setProfile((prev) => ({
-                    ...prev,
-                    max_store_count: Number(e.target.value),
-                  }))
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, max_store_count: Number(value) }))
                 }
-                placeholder="Max stores"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+                type="number"
               />
-              <input
+              <LabeledInput
+                label="Vehicle MPG"
+                value={profile.vehicle_mpg}
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, vehicle_mpg: Number(value) }))
+                }
                 type="number"
                 step="0.1"
-                value={profile.vehicle_mpg}
-                onChange={(e) =>
-                  setProfile((prev) => ({ ...prev, vehicle_mpg: Number(e.target.value) }))
-                }
-                placeholder="Vehicle MPG"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
               />
-              <input
+              <LabeledInput
+                label="Gas Price ($/gal)"
+                value={profile.gas_price}
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, gas_price: Number(value) }))
+                }
                 type="number"
                 step="0.01"
-                value={profile.gas_price}
-                onChange={(e) =>
-                  setProfile((prev) => ({ ...prev, gas_price: Number(e.target.value) }))
+              />
+              <div className="hidden md:block" />
+
+              <LabeledInput
+                label="Start Latitude"
+                value={profile.latitude}
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, latitude: Number(value) }))
                 }
-                placeholder="Gas price"
-                className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+                type="number"
+                step="any"
+              />
+              <LabeledInput
+                label="Start Longitude"
+                value={profile.longitude}
+                onChange={(value) =>
+                  setProfile((prev) => ({ ...prev, longitude: Number(value) }))
+                }
+                type="number"
+                step="any"
+              />
+              <LabeledInput
+                label="End Latitude"
+                value={profile.destination_latitude}
+                onChange={(value) =>
+                  setProfile((prev) => ({
+                    ...prev,
+                    destination_latitude: Number(value),
+                  }))
+                }
+                type="number"
+                step="any"
+              />
+              <LabeledInput
+                label="End Longitude"
+                value={profile.destination_longitude}
+                onChange={(value) =>
+                  setProfile((prev) => ({
+                    ...prev,
+                    destination_longitude: Number(value),
+                  }))
+                }
+                type="number"
+                step="any"
               />
             </div>
 
