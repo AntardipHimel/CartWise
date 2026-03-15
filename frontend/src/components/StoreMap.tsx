@@ -1,24 +1,36 @@
 "use client";
-import { useEffect } from "react";
+
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-interface Store {
-  name: string;
-  latitude: number;
-  longitude: number;
+type Store = {
+  name?: string;
   address?: string;
-}
+  lat?: number;
+  lon?: number;
+  latitude?: number;
+  longitude?: number;
+};
 
-interface MapProps {
+type MapProps = {
   stores: Store[];
   userLat: number;
   userLng: number;
-}
+};
 
 export default function StoreMap({ stores, userLat, userLng }: MapProps) {
+  const mapRef = useRef<L.Map | null>(null);
+
   useEffect(() => {
-    const map = L.map("map").setView([userLat, userLng], 13);
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    const map = L.map("map").setView([userLat, userLng], 12);
+    mapRef.current = map;
+
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "OpenStreetMap",
     }).addTo(map);
@@ -31,10 +43,14 @@ export default function StoreMap({ stores, userLat, userLng }: MapProps) {
       fillOpacity: 0.9,
     })
       .addTo(map)
-      .bindPopup("You are here");
+      .bindPopup("Start");
 
     stores.forEach((store) => {
-      L.circleMarker([store.latitude, store.longitude], {
+      const lat = store.lat ?? store.latitude;
+      const lon = store.lon ?? store.longitude;
+      if (lat === undefined || lon === undefined) return;
+
+      L.circleMarker([lat, lon], {
         radius: 8,
         fillColor: "#10b981",
         color: "#065f46",
@@ -42,11 +58,14 @@ export default function StoreMap({ stores, userLat, userLng }: MapProps) {
         fillOpacity: 0.9,
       })
         .addTo(map)
-        .bindPopup(store.name + "<br/>" + (store.address || ""));
+        .bindPopup((store.name || "Store") + "<br/>" + (store.address || ""));
     });
 
-    return () => { map.remove(); };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
   }, [stores, userLat, userLng]);
 
-  return <div id="map" className="w-full h-[350px] rounded-xl border border-gray-700" />;
+  return <div id="map" className="h-[350px] w-full rounded-xl border border-gray-700" />;
 }
