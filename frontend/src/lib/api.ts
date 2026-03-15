@@ -25,3 +25,23 @@ export async function getProducts() {
   const res = await fetch(API_BASE + "/products");
   return res.json();
 }
+
+export async function createUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  zip_code: string;
+  latitude: number;
+  longitude: number;
+  max_drive_miles: number;
+  vehicle_mpg: number;
+  gas_price: number;
+  brand_preferences: Record<string, string>;
+}) {
+  const res = await fetch(API_BASE + "/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
