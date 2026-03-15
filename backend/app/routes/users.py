@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from datetime import datetime
 from app.db import get_db
 from app.models.documents import User
 from app.services.trip_tracker import save_trip, get_smart_recommendations
@@ -24,9 +23,7 @@ async def create_user(data: dict):
         max_drive_miles=data.get("max_drive_miles", 15.0),
         vehicle_mpg=data.get("vehicle_mpg", 25.0),
         gas_price=data.get("gas_price", 3.50),
-        preferred_stores=data.get("preferred_stores", []),
         brand_preferences=data.get("brand_preferences", {}),
-        regular_items=data.get("regular_items", []),
     )
     result = await db.users.insert_one(user.model_dump())
     return {"user_id": str(result.inserted_id), "message": "Profile created"}
@@ -46,8 +43,17 @@ async def get_user(email: str):
 async def update_user(email: str, data: dict):
     db = get_db()
     update_fields = {}
-    allowed = ["name", "zip_code", "latitude", "longitude", "max_drive_miles",
-               "vehicle_mpg", "gas_price", "preferred_stores", "brand_preferences", "regular_items"]
+    allowed = [
+        "name",
+        "zip_code",
+        "latitude",
+        "longitude",
+        "max_drive_miles",
+        "vehicle_mpg",
+        "gas_price",
+        "brand_preferences",
+    ]
+
     for key in allowed:
         if key in data:
             update_fields[key] = data[key]

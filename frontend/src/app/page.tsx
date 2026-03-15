@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { optimizeShopping } from "@/lib/api";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 
 const StoreMap = dynamic(() => import("@/components/StoreMap"), { ssr: false });
 
@@ -69,12 +70,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="text-center mb-10">
-          <h1 className="text-5xl font-bold text-emerald-400 mb-2">CartWise</h1>
-          <p className="text-gray-400 text-lg">
-            Smart shopping optimizer - find the best stores, save money and time
-          </p>
-        </div>
+        <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <div className="text-center lg:text-left">
+    <h1 className="mb-2 text-5xl font-bold text-emerald-400">CartWise</h1>
+    <p className="text-lg text-gray-400">
+      Smart shopping optimizer - find the best stores, save money and time
+    </p>
+  </div>
+
+  <Link
+    href="/users/create"
+    className="inline-flex items-center justify-center rounded-xl border border-emerald-600 px-5 py-3 font-semibold text-emerald-400 transition hover:bg-emerald-600 hover:text-white"
+  >
+    Create User Profile
+  </Link>
+</div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">

@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -13,9 +12,7 @@ class User(BaseModel):
     max_drive_miles: float = 15.0
     vehicle_mpg: float = 25.0
     gas_price: float = 3.50
-    preferred_stores: list[str] = []
     brand_preferences: dict[str, str] = {}
-    regular_items: list[str] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
