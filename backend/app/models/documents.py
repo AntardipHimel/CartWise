@@ -3,54 +3,45 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class UserProfile(BaseModel):
-    username: str
-    email: str
-    zip_code: str
-    preferred_stores: list[str] = []
-    regular_items: list[str] = []
-    brand_preferences: dict[str, str] = {}
-    vehicle_mpg: float = 25.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_active: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ProductCandidate(BaseModel):
+class User(BaseModel):
     name: str
-    brand: str = ""
+    email: str
+    password_hash: str = ""
+    zip_code: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    max_drive_miles: float = 15.0
+    vehicle_mpg: float = 25.0
+    gas_price: float = 3.50
+    preferred_stores: list[str] = []
+    brand_preferences: dict[str, str] = {}
+    regular_items: list[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Store(BaseModel):
     store_id: str
-    store_name: str
-    price: float
-    unit_size: float
-    unit_type: str
-    category: str = ""
-    image_url: str = ""
-    upc: str = ""
-    in_stock: bool = True
-    stock_confidence: float = 1.0
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    name: str
+    chain: str
+    address: str = ""
+    zip_code: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    rating: float = 4.0
+    hours: str = ""
+    phone: str = ""
 
 
-class PriceCache(BaseModel):
-    item_query: str
+class Product(BaseModel):
     store_id: str
-    candidates: list[ProductCandidate]
-    fetched_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime = None
-
-
-class ShoppingTrip(BaseModel):
-    user_id: str
-    items_purchased: list[dict] = []
-    stores_visited: list[str] = []
-    total_spent: float = 0.0
-    total_saved: float = 0.0
-    trip_date: datetime = Field(default_factory=datetime.utcnow)
-
-
-class DemandSignal(BaseModel):
     product_name: str
-    store_id: str
-    zip_code: str
-    recommendation_count: int = 0
-    last_recommended: datetime = Field(default_factory=datetime.utcnow)
+    generic_name: str
+    brand: str = ""
+    price: float = 0.0
+    unit_size: float = 0.0
+    unit_type: str = ""
+    category: str = ""
+    upc: str = ""
+    image_url: str = ""
+    in_stock: bool = True
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
