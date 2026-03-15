@@ -8,7 +8,7 @@ import ProfilePanel from "@/components/ProfilePanel";
 import ShoppingItemBuilder, {
   DraftShoppingItem,
 } from "@/components/ShoppingItemBuilder";
-import { getUser, optimizeSmart, saveTrip } from "@/lib/api";
+import { getUser, optimizeSmartRanked, saveTrip } from "@/lib/api";
 import { getStoredSession, pushCachedRoute } from "@/lib/auth";
 
 const StoreMap = dynamic(() => import("@/components/StoreMap"), { ssr: false });
@@ -114,6 +114,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [selectedRouteRank, setSelectedRouteRank] = useState<number | null>(null);
+  const [expandedRoute, setExpandedRoute] = useState<number | null>(null);
+  const [expandedStores, setExpandedStores] = useState<Record<string, boolean>>({});
+  const [routeFilter, setRouteFilter] = useState<"all" | "balanced" | "single" | "multi">("all");
 
   useEffect(() => {
     const session = getStoredSession();
@@ -157,9 +161,9 @@ export default function Home() {
     }));
   }, [items]);
 
-  const activeCategory = result?.recommended_category
-    ? result.categories?.[result.recommended_category]
-    : null;
+  const activeRoute = result?.routes?.find(
+    (r: any) => r.rank === selectedRouteRank
+  ) ?? null;
 
   const getCurrentCoords = (onSuccess: (lat: number, lon: number) => void) => {
     setStatusMessage("");
@@ -208,7 +212,7 @@ export default function Home() {
     setStatusMessage("");
 
     try {
-      const data = await optimizeSmart({
+      const data = await optimizeSmartRanked({
         email: sessionEmail,
         start_lat: Number(profile.latitude),
         start_lng: Number(profile.longitude),
@@ -225,6 +229,10 @@ export default function Home() {
       });
 
       setResult(data);
+      setSelectedRouteRank(data.balanced_route_rank || 1);
+      setExpandedRoute(null);
+      setExpandedStores({});
+      setRouteFilter("all");
     } catch {
       setStatusMessage("Optimization failed.");
     } finally {
@@ -232,26 +240,28 @@ export default function Home() {
     }
   };
 
-  const handleSelectCategory = async (categoryKey: "cheapest" | "shortest") => {
+  const handleSelectRoute = async (rank: number) => {
     if (!result || !sessionEmail) return;
 
-    const category = result.categories?.[categoryKey];
-    if (!category) return;
+    const route = result.routes?.find((r: any) => r.rank === rank);
+    if (!route) return;
+
+    setSelectedRouteRank(rank);
 
     const payload = {
-      category: categoryKey,
-      plan_chosen: categoryKey,
-      items_purchased: category.included_products ?? [],
-      stores_visited: category.stores ?? [],
-      route_taken: category.route ?? [],
-      total_spent: Number(category.metrics?.total_cost ?? 0),
+      category: route.is_balanced_pick ? "balanced" : `route_${rank}`,
+      plan_chosen: route.label,
+      items_purchased: route.included_products ?? [],
+      stores_visited: route.stores ?? [],
+      route_taken: route.route ?? [],
+      total_spent: Number(route.metrics?.total_cost ?? 0),
       total_saved: 0,
       saved_at: new Date().toISOString(),
     };
 
     pushCachedRoute(payload);
     await saveTrip(sessionEmail, payload);
-    setStatusMessage(`${categoryKey} route saved.`);
+    setStatusMessage(`${route.label} saved.`);
   };
 
   return (
@@ -429,115 +439,381 @@ export default function Home() {
                 </div>
               )}
 
-              {result && (
+              {result && result.routes?.length > 0 && (
                 <>
+                  {/* Recommendation banner */}
                   <div className="rounded-2xl border border-emerald-700 bg-emerald-900/30 p-5">
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-semibold text-emerald-300">Recommendation</span>
                       <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs uppercase text-white">
-                        {result.recommended_category}
+                        Route {result.balanced_route_rank}
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-gray-300">{result.recommendation_reason}</p>
                   </div>
 
-                  {(["cheapest", "shortest"] as const).map((key) => {
-                    const category = result.categories?.[key];
-                    if (!category) return null;
-
-                    return (
-                      <div
-                        key={key}
+                  {/* Filters */}
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      [
+                        { key: "all", label: "All Routes" },
+                        { key: "balanced", label: "Best Balanced" },
+                        { key: "single", label: "Single Store" },
+                        { key: "multi", label: "Multi Store" },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setRouteFilter(f.key)}
                         className={
-                          "rounded-2xl border p-5 " +
-                          (result.recommended_category === key
-                            ? "border-emerald-500 bg-gray-900"
-                            : "border-gray-800 bg-gray-900")
+                          "rounded-full px-4 py-2 text-xs font-semibold transition " +
+                          (routeFilter === f.key
+                            ? "border border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                            : "border border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600")
                         }
                       >
-                        <div className="mb-3 flex items-center justify-between">
-                          <h3 className="text-lg font-semibold capitalize text-white">{key}</h3>
-                          <button
-                            onClick={() => handleSelectCategory(key)}
-                            className="rounded-xl border border-emerald-600 px-3 py-2 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-600 hover:text-white"
+                        {f.label}
+                      </button>
+                    ))}
+                    <span className="flex items-center text-xs text-gray-500">
+                      {result.routes.filter((r: any) => {
+                        if (routeFilter === "balanced") return r.is_balanced_pick;
+                        if (routeFilter === "single") return (r.metrics?.store_count ?? 0) <= 1;
+                        if (routeFilter === "multi") return (r.metrics?.store_count ?? 0) > 1;
+                        return true;
+                      }).length}{" "}
+                      of {result.routes.length} routes
+                    </span>
+                  </div>
+
+                  {/* Route cards */}
+                  {result.routes
+                    .filter((route: any) => {
+                      if (routeFilter === "balanced") return route.is_balanced_pick;
+                      if (routeFilter === "single") return (route.metrics?.store_count ?? 0) <= 1;
+                      if (routeFilter === "multi") return (route.metrics?.store_count ?? 0) > 1;
+                      return true;
+                    })
+                    .map((route: any) => {
+                      const isSelected = selectedRouteRank === route.rank;
+                      const isExpanded = expandedRoute === route.rank;
+                      const storeStops = (route.route ?? []).filter(
+                        (s: any) => s.type === "store"
+                      );
+
+                      // Group products by store_id
+                      const productsByStore: Record<string, any[]> = {};
+                      for (const p of route.included_products ?? []) {
+                        if (!productsByStore[p.store_id]) productsByStore[p.store_id] = [];
+                        productsByStore[p.store_id].push(p);
+                      }
+
+                      return (
+                        <div
+                          key={route.rank}
+                          className={
+                            "overflow-hidden rounded-2xl border transition " +
+                            (isSelected
+                              ? "border-emerald-500 bg-gray-900 ring-1 ring-emerald-500/30"
+                              : "border-gray-800 bg-gray-900")
+                          }
+                        >
+                          {/* Card header */}
+                          <div
+                            className={
+                              "flex items-center justify-between px-5 py-4 " +
+                              (route.is_balanced_pick ? "bg-amber-500/5" : "")
+                            }
                           >
-                            Select Route
-                          </button>
-                        </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-bold text-white">
+                                {route.label}
+                              </span>
+                              {route.is_balanced_pick && (
+                                <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-bold uppercase text-amber-400">
+                                  ★ Best Balanced
+                                </span>
+                              )}
+                              {route.rank === 1 && !route.is_balanced_pick && (
+                                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold uppercase text-emerald-400">
+                                  Cheapest
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleSelectRoute(route.rank)}
+                              className={
+                                "rounded-xl px-4 py-2 text-sm font-semibold transition " +
+                                (isSelected
+                                  ? "bg-emerald-600 text-white"
+                                  : "border border-emerald-600 text-emerald-400 hover:bg-emerald-600 hover:text-white")
+                              }
+                            >
+                              {isSelected ? "✓ Selected" : "Select Route"}
+                            </button>
+                          </div>
 
-                        <p className="mb-4 text-sm text-gray-400">{category.summary}</p>
+                          {/* Metrics row */}
+                          <div className="grid grid-cols-4 gap-3 px-5 pb-4">
+                            <div className="rounded-xl bg-emerald-500/10 p-3 text-center">
+                              <div className="text-xs font-semibold uppercase text-emerald-500">
+                                Total Cost
+                              </div>
+                              <div className="mt-1 text-base font-bold text-white">
+                                ${Number(route.metrics?.total_cost ?? 0).toFixed(2)}
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-gray-800 p-3 text-center">
+                              <div className="text-xs font-semibold uppercase text-gray-500">
+                                Travel
+                              </div>
+                              <div className="mt-1 text-base font-bold text-white">
+                                {Number(route.metrics?.travel_distance_miles ?? 0).toFixed(1)} mi
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-gray-800 p-3 text-center">
+                              <div className="text-xs font-semibold uppercase text-gray-500">
+                                Items
+                              </div>
+                              <div className="mt-1 text-base font-bold text-white">
+                                {route.metrics?.items_included ?? 0}/{route.metrics?.items_requested ?? 0}
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-gray-800 p-3 text-center">
+                              <div className="text-xs font-semibold uppercase text-gray-500">
+                                Stores
+                              </div>
+                              <div className="mt-1 text-base font-bold text-white">
+                                {route.metrics?.store_count ?? 0}
+                              </div>
+                            </div>
+                          </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="rounded-xl bg-gray-800 p-4">
-                            <div className="text-gray-500">Total Cost</div>
-                            <div className="mt-1 font-semibold text-white">
-                              ${Number(category.metrics?.total_cost ?? 0).toFixed(2)}
-                            </div>
-                          </div>
-                          <div className="rounded-xl bg-gray-800 p-4">
-                            <div className="text-gray-500">Travel Distance</div>
-                            <div className="mt-1 font-semibold text-white">
-                              {Number(category.metrics?.travel_distance_miles ?? 0).toFixed(2)} mi
-                            </div>
-                          </div>
-                          <div className="rounded-xl bg-gray-800 p-4">
-                            <div className="text-gray-500">Items Included</div>
-                            <div className="mt-1 font-semibold text-white">
-                              {category.metrics?.items_included ?? 0} / {category.metrics?.items_requested ?? 0}
-                            </div>
-                          </div>
-                          <div className="rounded-xl bg-gray-800 p-4">
-                            <div className="text-gray-500">Store Count</div>
-                            <div className="mt-1 font-semibold text-white">
-                              {category.metrics?.store_count ?? 0}
-                            </div>
-                          </div>
-                        </div>
+                          {/* Trip Plan accordion */}
+                          <div className="border-t border-gray-800">
+                            <button
+                              onClick={() =>
+                                setExpandedRoute(isExpanded ? null : route.rank)
+                              }
+                              className="flex w-full items-center justify-between px-5 py-3 text-left"
+                            >
+                              <span className="text-sm font-semibold text-white">
+                                Trip Plan
+                              </span>
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                className={
+                                  "text-gray-500 transition-transform " +
+                                  (isExpanded ? "rotate-180" : "")
+                                }
+                              >
+                                <polyline points="6 9 12 15 18 9" />
+                              </svg>
+                            </button>
 
-                        <div className="mt-5">
-                          <div className="mb-2 text-sm font-semibold text-gray-300">Selected Products</div>
-                          <div className="space-y-2">
-                            {(category.included_products ?? []).map((product: any, index: number) => (
-                              <div key={index} className="rounded-xl bg-gray-800 px-4 py-3 text-sm">
-                                <div className="font-medium text-white">{product.item_key}</div>
-                                <div className="mt-1 text-gray-400">
-                                  {product.item_name || product.product_id}
-                                  {product.brand ? ` • ${product.brand}` : ""}
-                                  {product.package_size && product.package_unit
-                                    ? ` • ${product.package_size} ${product.package_unit}`
-                                    : ""}
+                            {isExpanded && (
+                              <div className="space-y-2 px-5 pb-5">
+                                {/* Start */}
+                                <div className="flex items-center justify-between rounded-xl border border-gray-700 bg-gray-800/60 px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                                    <span className="text-sm font-semibold text-white">
+                                      Start
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-4 text-xs text-gray-500">
+                                    <span>Distance: 0</span>
+                                    <span>Time: {tripStartTime}</span>
+                                  </div>
                                 </div>
-                                <div className="mt-1 text-emerald-400">
-                                  ${Number(product.price ?? 0).toFixed(2)}
+
+                                {/* Store stops */}
+                                {storeStops.map((stop: any, si: number) => {
+                                  const storeKey = `${route.rank}-${stop.store_id}`;
+                                  const storeProducts =
+                                    productsByStore[stop.store_id] ?? [];
+                                  const storeOpen = expandedStores[storeKey] ?? false;
+                                  const storeTotal = storeProducts.reduce(
+                                    (s: number, p: any) => s + (p.price ?? 0),
+                                    0
+                                  );
+                                  const COLORS = [
+                                    "bg-blue-500",
+                                    "bg-fuchsia-500",
+                                    "bg-orange-500",
+                                    "bg-teal-500",
+                                    "bg-violet-500",
+                                  ];
+
+                                  return (
+                                    <div key={si}>
+                                      {/* Connector line */}
+                                      <div className="ml-[21px] h-4 w-0.5 bg-gray-700" />
+
+                                      <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800/60">
+                                        <button
+                                          onClick={() =>
+                                            setExpandedStores((prev) => ({
+                                              ...prev,
+                                              [storeKey]: !storeOpen,
+                                            }))
+                                          }
+                                          className="flex w-full items-center justify-between px-4 py-3 text-left"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            <div
+                                              className={
+                                                "h-3 w-3 rounded-full " +
+                                                COLORS[si % COLORS.length]
+                                              }
+                                            />
+                                            <span className="text-sm font-semibold text-white">
+                                              {stop.name || stop.vendor || stop.store_id}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                              {storeProducts.length} items
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-4 text-xs">
+                                            <span className="text-gray-500">
+                                              +
+                                              {Number(
+                                                (route.metrics
+                                                  ?.travel_distance_miles ?? 0) /
+                                                  Math.max(storeStops.length, 1)
+                                              ).toFixed(1)}{" "}
+                                              mi
+                                            </span>
+                                            <span className="font-semibold text-white">
+                                              ${storeTotal.toFixed(2)}
+                                            </span>
+                                            <svg
+                                              width="14"
+                                              height="14"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeWidth="2.5"
+                                              className={
+                                                "text-gray-500 transition-transform " +
+                                                (storeOpen ? "rotate-180" : "")
+                                              }
+                                            >
+                                              <polyline points="6 9 12 15 18 9" />
+                                            </svg>
+                                          </div>
+                                        </button>
+
+                                        {storeOpen && (
+                                          <div className="border-t border-gray-700 px-4 pb-3 pt-2">
+                                            {/* Product table header */}
+                                            <div className="mb-1 grid grid-cols-[1fr_1fr_0.6fr_0.6fr] gap-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                              <span>Name</span>
+                                              <span>Brand</span>
+                                              <span>Size</span>
+                                              <span className="text-right">
+                                                Price
+                                              </span>
+                                            </div>
+                                            {storeProducts.map(
+                                              (p: any, pi: number) => (
+                                                <div
+                                                  key={pi}
+                                                  className="grid grid-cols-[1fr_1fr_0.6fr_0.6fr] gap-2 border-t border-gray-700/50 py-2 text-xs"
+                                                >
+                                                  <span className="font-medium text-white">
+                                                    {p.item_name || p.item_key}
+                                                  </span>
+                                                  <span className="text-gray-400">
+                                                    {p.brand || "—"}
+                                                  </span>
+                                                  <span className="text-gray-400">
+                                                    {p.package_size && p.package_unit
+                                                      ? `${p.package_size} ${p.package_unit}`
+                                                      : "—"}
+                                                  </span>
+                                                  <span className="text-right font-semibold text-emerald-400">
+                                                    $
+                                                    {Number(
+                                                      p.price ?? 0
+                                                    ).toFixed(2)}
+                                                  </span>
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* End connector + stop */}
+                                <div className="ml-[21px] h-4 w-0.5 bg-gray-700" />
+                                <div className="flex items-center justify-between rounded-xl border border-gray-700 bg-gray-800/60 px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                                    <span className="text-sm font-semibold text-white">
+                                      End
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-4 text-xs text-gray-500">
+                                    <span>
+                                      {Number(
+                                        route.metrics?.travel_distance_miles ?? 0
+                                      ).toFixed(1)}{" "}
+                                      mi total
+                                    </span>
+                                    <span>
+                                      ~
+                                      {Math.round(
+                                        route.metrics?.travel_time_minutes ?? 0
+                                      )}{" "}
+                                      min
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Missing items */}
+                                {route.missing_items?.length > 0 && (
+                                  <div className="mt-3">
+                                    <div className="mb-2 text-xs font-semibold text-red-300">
+                                      Missing Items
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {route.missing_items.map((item: string) => (
+                                        <span
+                                          key={item}
+                                          className="rounded-full border border-red-500/30 px-3 py-1 text-xs text-red-300"
+                                        >
+                                          {item}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Map placeholder */}
+                                <div className="mt-3 rounded-xl border border-dashed border-gray-700 p-4 text-center text-xs text-gray-500">
+                                  Map for this Trip
                                 </div>
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
+                      );
+                    })}
 
-                        {category.missing_items?.length > 0 && (
-                          <div className="mt-5">
-                            <div className="mb-2 text-sm font-semibold text-red-300">Missing Items</div>
-                            <div className="flex flex-wrap gap-2">
-                              {category.missing_items.map((item: string) => (
-                                <span
-                                  key={item}
-                                  className="rounded-full border border-red-500/30 px-3 py-1 text-xs text-red-300"
-                                >
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
+                  {/* Store map for selected route */}
                   <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
                     <h3 className="mb-3 text-sm font-semibold text-gray-400">STORE MAP</h3>
                     <StoreMap
-                      stores={activeCategory?.stores ?? []}
+                      stores={activeRoute?.stores ?? []}
                       userLat={Number(profile.latitude)}
                       userLng={Number(profile.longitude)}
                     />

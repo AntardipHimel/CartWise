@@ -124,3 +124,36 @@ export async function optimizeSmart(data: {
   });
   return res.json();
 }
+
+export async function optimizeSmartRanked(data: {
+  email?: string;
+  start_lat: number;
+  start_lng: number;
+  end_lat: number;
+  end_lng: number;
+  trip_start_time: string;
+  max_radius_miles: number;
+  max_store_count: number;
+  vehicle_mpg: number;
+  gas_price_per_gallon: number;
+  candidate_limit_per_item: number;
+  minimum_multi_store_savings: number;
+  items: {
+    item_key: string;
+    filters: {
+      brand?: string | null;
+      package_size?: number | null;
+      package_unit?: string | null;
+      max_price?: number | null;
+      must_buy: boolean;
+      allow_substitutes: boolean;
+    };
+  }[];
+}) {
+  const res = await fetch(API_BASE + "/optimize-smart-ranked", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
