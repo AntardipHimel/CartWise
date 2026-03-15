@@ -397,3 +397,97 @@ def optimize_categories(
         "cheapest": cheapest,
         "shortest": shortest,
     }, recommended_category, recommendation_reason
+
+
+# ---------------------------------------------------------------------------
+# Top-N route generation (new: 10 cheapest + balanced pick)
+# ---------------------------------------------------------------------------
+
+def find_top_n_plans(
+    candidate_bundles: list[CandidateBundle],
+    stores: list[StoreNode],
+    start_lat: float,
+    start_lng: float,
+    end_lat: float,
+    end_lng: float,
+    trip_start_time: str,
+    max_store_count: int,
+    vehicle_mpg: float,
+    gas_price_per_gallon: float,
+    max_routes: int = 10,
+) -> list[RouteCategory]:
+    """
+    Generate ALL valid store combos, score them, deduplicate by store-set,
+    and return the top `max_routes` sorted by (missing items, total cost).
+    """
+    relevant = prefilter_relevant_stores(candidate_bundles, stores, trip_start_time)
+    if not relevant:
+        return []
+
+    relevant.sort(key=lambda s: haversine_miles(start_lat, start_lng, s.lat, s.lon))
+    relevant = relevant[:15]
+
+    all_plans: list[RouteCategory] = []
+    seen_store_sets: set[frozenset[str]] = set()
+
+    for size in range(1, min(max_store_count, len(relevant)) + 1):
+        for combo in combinations(relevant, size):
+            store_key = frozenset(s.store_id for s in combo)
+            if store_key in seen_store_sets:
+                continue
+            seen_store_sets.add(store_key)
+
+            plan = build_plan_for_store_subset(
+                category="ranked",
+                candidate_bundles=candidate_bundles,
+                selected_stores=list(combo),
+                start_lat=start_lat,
+                start_lng=start_lng,
+                end_lat=end_lat,
+                end_lng=end_lng,
+                vehicle_mpg=vehicle_mpg,
+                gas_price_per_gallon=gas_price_per_gallon,
+            )
+            all_plans.append(plan)
+
+    all_plans.sort(key=lambda p: (
+        p.metrics["items_missing"],
+        p.metrics["total_cost"],
+    ))
+
+    return all_plans[:max_routes]
+
+
+def choose_balanced(plans: list[RouteCategory]) -> int:
+    """
+    Pick the best balanced route index from the list.
+    Normalizes cost, distance, time, missing items and picks the lowest
+    weighted score. Returns index into the list.
+    """
+    if not plans:
+        return 0
+
+    costs = [p.metrics["total_cost"] for p in plans]
+    dists = [p.metrics["travel_distance_miles"] for p in plans]
+    times = [p.metrics["travel_time_minutes"] for p in plans]
+    misses = [p.metrics["items_missing"] for p in plans]
+
+    def _norm(val: float, vals: list[float]) -> float:
+        lo, hi = min(vals), max(vals)
+        return (val - lo) / (hi - lo) if hi > lo else 0.0
+
+    best_idx = 0
+    best_score = float("inf")
+
+    for i, p in enumerate(plans):
+        score = (
+            0.35 * _norm(p.metrics["total_cost"], costs)
+            + 0.30 * _norm(p.metrics["travel_distance_miles"], dists)
+            + 0.20 * _norm(p.metrics["travel_time_minutes"], times)
+            + 0.15 * _norm(p.metrics["items_missing"], misses)
+        )
+        if score < best_score:
+            best_score = score
+            best_idx = i
+
+    return best_idx
