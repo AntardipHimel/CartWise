@@ -10,7 +10,10 @@ type FormState = {
   zip_code: string;
   latitude: string;
   longitude: string;
+  destination_latitude: string;
+  destination_longitude: string;
   max_drive_miles: string;
+  max_store_count: string;
   vehicle_mpg: string;
   gas_price: string;
 };
@@ -22,7 +25,10 @@ const initialState: FormState = {
   zip_code: "",
   latitude: "",
   longitude: "",
+  destination_latitude: "",
+  destination_longitude: "",
   max_drive_miles: "15",
+  max_store_count: "3",
   vehicle_mpg: "25",
   gas_price: "3.5",
 };
@@ -57,8 +63,12 @@ export default function UserCreateForm() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        updateField("latitude", String(position.coords.latitude));
-        updateField("longitude", String(position.coords.longitude));
+        const lat = String(position.coords.latitude);
+        const lng = String(position.coords.longitude);
+        updateField("latitude", lat);
+        updateField("longitude", lng);
+        if (!form.destination_latitude.trim()) updateField("destination_latitude", lat);
+        if (!form.destination_longitude.trim()) updateField("destination_longitude", lng);
       },
       () => {
         setMessage("Unable to fetch current location.");
@@ -82,16 +92,28 @@ export default function UserCreateForm() {
     setIsError(false);
 
     try {
+      const latitude = form.latitude.trim() ? Number(form.latitude) : 0;
+      const longitude = form.longitude.trim() ? Number(form.longitude) : 0;
+
       const payload = {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
         zip_code: form.zip_code.trim(),
-        latitude: form.latitude.trim() ? Number(form.latitude) : 0,
-        longitude: form.longitude.trim() ? Number(form.longitude) : 0,
+        latitude,
+        longitude,
+        destination_latitude: form.destination_latitude.trim()
+          ? Number(form.destination_latitude)
+          : latitude,
+        destination_longitude: form.destination_longitude.trim()
+          ? Number(form.destination_longitude)
+          : longitude,
         max_drive_miles: form.max_drive_miles.trim()
           ? Number(form.max_drive_miles)
           : 15,
+        max_store_count: form.max_store_count.trim()
+          ? Number(form.max_store_count)
+          : 3,
         vehicle_mpg: form.vehicle_mpg.trim() ? Number(form.vehicle_mpg) : 25,
         gas_price: form.gas_price.trim() ? Number(form.gas_price) : 3.5,
         brand_preferences: {},
@@ -120,16 +142,14 @@ export default function UserCreateForm() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-emerald-400">Create User Profile</h1>
         <p className="mt-2 text-sm text-gray-400">
-          Save shopper profile, location, and vehicle settings for optimization.
+          Save shopper profile, location, and route settings for optimization.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Name
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Name</label>
             <input
               type="text"
               value={form.name}
@@ -140,9 +160,7 @@ export default function UserCreateForm() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Email
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Email</label>
             <input
               type="email"
               value={form.email}
@@ -153,9 +171,7 @@ export default function UserCreateForm() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Password
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Password</label>
             <input
               type="password"
               value={form.password}
@@ -166,9 +182,7 @@ export default function UserCreateForm() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Driving Radius (miles)
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Driving Radius (miles)</label>
             <input
               type="number"
               min="0"
@@ -176,14 +190,22 @@ export default function UserCreateForm() {
               value={form.max_drive_miles}
               onChange={(e) => updateField("max_drive_miles", e.target.value)}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="15"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Vehicle MPG
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Max Store Count</label>
+            <input
+              type="number"
+              min="1"
+              value={form.max_store_count}
+              onChange={(e) => updateField("max_store_count", e.target.value)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Vehicle MPG</label>
             <input
               type="number"
               min="1"
@@ -191,14 +213,11 @@ export default function UserCreateForm() {
               value={form.vehicle_mpg}
               onChange={(e) => updateField("vehicle_mpg", e.target.value)}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="25"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Gas Price ($/gal)
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Gas Price ($/gal)</label>
             <input
               type="number"
               min="0"
@@ -206,48 +225,16 @@ export default function UserCreateForm() {
               value={form.gas_price}
               onChange={(e) => updateField("gas_price", e.target.value)}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="3.50"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              ZIP Code
-            </label>
+            <label className="mb-2 block text-sm font-medium text-gray-300">ZIP Code</label>
             <input
               type="text"
               value={form.zip_code}
               onChange={(e) => updateField("zip_code", e.target.value)}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="43606"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Latitude
-            </label>
-            <input
-              type="number"
-              step="any"
-              value={form.latitude}
-              onChange={(e) => updateField("latitude", e.target.value)}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="41.6528"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Longitude
-            </label>
-            <input
-              type="number"
-              step="any"
-              value={form.longitude}
-              onChange={(e) => updateField("longitude", e.target.value)}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              placeholder="-83.5379"
             />
           </div>
 
@@ -259,6 +246,50 @@ export default function UserCreateForm() {
             >
               Use Current Location
             </button>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Start Latitude</label>
+            <input
+              type="number"
+              step="any"
+              value={form.latitude}
+              onChange={(e) => updateField("latitude", e.target.value)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Start Longitude</label>
+            <input
+              type="number"
+              step="any"
+              value={form.longitude}
+              onChange={(e) => updateField("longitude", e.target.value)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">End Latitude</label>
+            <input
+              type="number"
+              step="any"
+              value={form.destination_latitude}
+              onChange={(e) => updateField("destination_latitude", e.target.value)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">End Longitude</label>
+            <input
+              type="number"
+              step="any"
+              value={form.destination_longitude}
+              onChange={(e) => updateField("destination_longitude", e.target.value)}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
+            />
           </div>
         </div>
 

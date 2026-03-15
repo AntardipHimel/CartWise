@@ -1,55 +1,90 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+
+
+class ShoppingFilter(BaseModel):
+    brand: str | None = None
+    package_size: float | None = None
+    package_unit: str | None = None
+    max_price: float | None = None
+    must_buy: bool = True
+    allow_substitutes: bool = True
 
 
 class ShoppingItem(BaseModel):
-    name: str
-    quantity: int = 1
-    preferred_brand: Optional[str] = None
-    category: Optional[str] = None
+    item_key: str
+    filters: ShoppingFilter = Field(default_factory=ShoppingFilter)
 
 
-class Store(BaseModel):
-    id: str
-    name: str
-    latitude: float
-    longitude: float
-    rating: float = 4.0
-    address: Optional[str] = None
-
-
-class PriceEntry(BaseModel):
-    item_name: str
+class CandidateProduct(BaseModel):
     store_id: str
+    product_id: str
     price: float
-    unit_size: float
-    unit_type: str
-    on_sale: bool = False
-    brand: Optional[str] = None
+    match_score: float
+    brand: str | None = None
+    package_size: float | None = None
+    package_unit: str | None = None
+    item_name: str | None = None
+    vendor: str | None = None
+
+
+class StoreNode(BaseModel):
+    store_id: str
+    lat: float
+    lon: float
+    name: str | None = None
+    vendor: str | None = None
+    open_time: str = "08:00"
+    close_time: str = "22:00"
+    visit_penalty_minutes: int = 10
+
+
+class CandidateBundle(BaseModel):
+    item_key: str
+    filters: ShoppingFilter
+    candidates: list[CandidateProduct]
 
 
 class OptimizeRequest(BaseModel):
-    items: list[ShoppingItem]
-    user_lat: float
-    user_lng: float
-    convenience_weight: float = 0.5
-    gas_price_per_gallon: float = 3.50
+    email: str | None = None
+    start_lat: float
+    start_lng: float
+    end_lat: float
+    end_lng: float
+    trip_start_time: str = "18:00"
+    max_radius_miles: float = 15.0
+    max_store_count: int = 3
     vehicle_mpg: float = 25.0
+    gas_price_per_gallon: float = 3.50
+    candidate_limit_per_item: int = 30
+    minimum_multi_store_savings: float = 2.0
+    items: list[ShoppingItem]
 
 
-class StorePlan(BaseModel):
-    stores: list[Store]
-    items_per_store: dict[str, list[str]]
-    total_item_cost: float
-    travel_cost: float
-    travel_time_minutes: float
-    travel_distance_miles: float
-    net_savings: float
+class SelectedProduct(BaseModel):
+    item_key: str
+    store_id: str
+    product_id: str
+    price: float
+    match_score: float
+    brand: str | None = None
+    package_size: float | None = None
+    package_unit: str | None = None
+    item_name: str | None = None
+    vendor: str | None = None
+
+
+class RouteCategory(BaseModel):
+    category: str
+    summary: str
+    stores: list[dict]
+    route: list[dict]
+    included_products: list[SelectedProduct]
+    missing_items: list[str]
+    metrics: dict
 
 
 class OptimizeResponse(BaseModel):
-    single_store_plan: StorePlan
-    multi_store_plan: StorePlan
-    recommended: str
-    total_savings_vs_worst: float
+    recommended_category: str
     recommendation_reason: str
+    request_context: dict
+    categories: dict[str, RouteCategory]
